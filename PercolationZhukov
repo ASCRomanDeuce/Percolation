@@ -1,0 +1,71 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def generate_grid(dimension, probability):
+    grid = np.zeros((dimension+2,dimension+2))
+
+    for cell in np.nditer(grid[1:-1, 1:-1], op_flags=['readwrite']):
+        cell[...] = 1 if np.random.random()<probability else 0
+
+    return grid
+
+
+def find_clusters(grid):
+    num_of_ones = np.count_nonzero(grid)
+    ids = np.arange(num_of_ones)
+    coords = [list(x) for x in np.argwhere(grid > 0)]
+    while True:
+        cw = []
+
+        for i in np.arange(ids.size):
+            y, x = coords[i]
+
+            if grid[y - 1][x] == 1 and grid[y][x - 1] == 0:
+                ids[i] = ids[coords.index([y - 1, x])]
+            elif grid[y][x - 1] == 1 and grid[y - 1][x] == 0:
+                ids[i] = ids[coords.index([y, x - 1])]
+
+            elif grid[y - 1][x] == 1 and grid[y][x - 1] == 1:
+                first_neighbor_id = ids[coords.index([y - 1, x])]
+                second_neighbor_id = ids[coords.index([y, x - 1])]
+                ids[i] = np.min([first_neighbor_id, second_neighbor_id])
+                if first_neighbor_id != second_neighbor_id:
+                    cw.append([first_neighbor_id, second_neighbor_id])
+
+        if cw == []:
+            break
+        else:
+            for id1, id2 in cw:
+                wrong_id = np.max([id1, id2])
+                correct_id = np.min([id1, id2])
+                ids[ids == wrong_id] = correct_id
+
+    return coords, ids
+
+
+def is_percolation(coords, ids, dimension):
+    clusters_coordinates = []
+    for idx in np.unique(ids):
+        clusters_coordinates.append([
+            coords[k] for k in range(len(ids)) if ids[k] == idx
+        ])
+
+    flag = False
+    for cluster in clusters_coordinates:
+        cluster = np.array(cluster).T
+        if (1 in cluster[1]) and (dimension in cluster[1]):
+            flag = True
+
+    return flag
+
+
+def estimating_conductive_probability(dimension, probability, iterations):
+    counter = 0
+    for k in range(iterations):
+        A = generate_grid(dimension, probability)
+        coords, ids = find_clusters(A)
+        if is_percolation(coords, ids, dimension):
+            counter += 1
+    return counter/iterations
+
